@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GenLayer Social Verifier</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:      #0a0f1a;
+      --bg2:     #0f1623;
+      --bg3:     #151d2e;
+      --blue:    #1d9bf0;
+      --blue2:   #1a8cd8;
+      --blue3:   #0f6fbd;
+      --dim:     #1a2440;
+      --border:  #1e2d47;
+      --text:    #e7e9ea;
+      --sub:     #71767b;
+      --muted:   #3d4654;
+      --green:   #00ba7c;
+      --red:     #f4212e;
+      --purple:  #8b5cf6;
+      --white:   #ffffff;
+      --fm:      'Syne', sans-serif;
+      --mono:    'JetBrains Mono', monospace;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: var(--fm);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 40% at 70% 20%, rgba(29,155,240,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 20% 80%, rgba(139,92,246,0.05) 0%, transparent 50%);
+    }
+
+    .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px 80px; position: relative; z-index: 1; }
+
+    /* HEADER */
+    .header {
+      padding: 22px 0 18px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo { display: flex; align-items: center; gap: 14px; }
+    .logo-icon {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--blue), var(--blue3));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; font-weight: 800; color: white;
+      box-shadow: 0 0 20px rgba(29,155,240,0.3);
+      letter-spacing: -1px;
+    }
+    .logo-name { font-size: 1.05rem; font-weight: 700; color: var(--text); letter-spacing: -.3px; }
+    .logo-tag  { font-size: .68rem; color: var(--sub); margin-top: 2px; }
+    .hdr-stats { display: flex; gap: 20px; }
+    .hs-item { text-align: right; }
+    .hs-val { font-size: 1.1rem; font-weight: 700; color: var(--blue); font-family: var(--mono); }
+    .hs-lbl { font-size: .6rem; color: var(--sub); text-transform: uppercase; letter-spacing: 1px; }
+
+    /* HOW IT WORKS BANNER */
+    .how-it-works {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; padding: 16px 20px; margin: 20px 0;
+      display: flex; gap: 24px; align-items: center;
+    }
+    .hiw-title { font-size: .68rem; font-weight: 700; color: var(--blue); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+    .hiw-steps { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .hiw-step { font-size: .72rem; color: var(--sub); }
+    .hiw-arrow { color: var(--muted); font-size: .8rem; }
+    .hiw-step span { color: var(--text); font-weight: 600; }
+
+    /* MAIN LAYOUT */
+    .main { display: grid; grid-template-columns: 1fr 340px; gap: 18px; }
+    @media(max-width: 720px) { .main { grid-template-columns: 1fr; } }
+
+    /* PLATFORM TABS */
+    .platform-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+    .ptab {
+      flex: 1; padding: 10px 12px; border-radius: 12px;
+      border: 1.5px solid var(--border); background: transparent;
+      color: var(--sub); font-family: var(--fm); font-size: .78rem;
+      font-weight: 600; cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+    .ptab:hover { border-color: var(--blue); color: var(--text); }
+    .ptab.active { background: var(--blue); border-color: var(--blue); color: white; box-shadow: 0 0 16px rgba(29,155,240,0.25); }
+    .ptab.github.active  { background: #24292f; border-color: #fff; }
+    .ptab.farcaster.active { background: var(--purple); border-color: var(--purple); box-shadow: 0 0 16px rgba(139,92,246,0.25); }
+
+    /* VERIFY FORM */
+    .verify-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 24px; margin-bottom: 16px;
+    }
+    .vc-title { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+    .vc-sub { font-size: .74rem; color: var(--sub); margin-bottom: 20px; line-height: 1.5; }
+    .vc-sub a { color: var(--blue); text-decoration: none; }
+
+    .inp-group { margin-bottom: 14px; }
+    .inp-label { font-size: .65rem; font-weight: 600; color: var(--sub); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: block; }
+    .text-inp {
+      width: 100%; background: var(--bg3); border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 11px 14px; font-family: var(--mono);
+      font-size: .82rem; color: var(--text); outline: none;
+      transition: border-color .2s;
+    }
+    .text-inp:focus { border-color: var(--blue); }
+    .text-inp::placeholder { color: var(--muted); }
+
+    .inp-hint { font-size: .65rem; color: var(--sub); margin-top: 5px; }
+    .inp-hint code { background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-family: var(--mono); color: var(--blue); font-size: .68rem; }
+
+    .btn-verify {
+      width: 100%; padding: 13px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--blue), var(--blue3));
+      border: none; color: white; font-family: var(--fm);
+      font-size: .85rem; font-weight: 700; cursor: pointer;
+      letter-spacing: .3px; transition: opacity .2s;
+      box-shadow: 0 4px 16px rgba(29,155,240,0.3);
+    }
+    .btn-verify:hover { opacity: .88; }
+    .btn-verify:disabled { opacity: .35; cursor: not-allowed; }
+    .btn-verify.github  { background: linear-gradient(135deg, #24292f, #444c56); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+    .btn-verify.farcaster { background: linear-gradient(135deg, var(--purple), #7c3aed); box-shadow: 0 4px 16px rgba(139,92,246,0.3); }
+
+    /* RESULT DISPLAY */
+    .result-display { margin-top: 16px; animation: slideUp .3s ease; }
+    @keyframes slideUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+    .rd-verified {
+      background: rgba(0,186,124,0.08); border: 1.5px solid rgba(0,186,124,0.3);
+      border-radius: 16px; padding: 20px;
+    }
+    .rd-failed {
+      background: rgba(244,33,46,0.07); border: 1.5px solid rgba(244,33,46,0.25);
+      border-radius: 16px; padding: 20px;
+    }
+    .rd-icon { font-size: 2rem; margin-bottom: 10px; }
+    .rd-status { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+    .rd-status.ok  { color: var(--green); }
+    .rd-status.fail { color: var(--red); }
+    .rd-msg { font-size: .78rem; color: var(--sub); margin-bottom: 14px; line-height: 1.5; }
+    .rd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .rdi { }
+    .rdi-label { font-size: .58rem; color: var(--sub); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+    .rdi-val { font-size: .75rem; color: var(--text); font-family: var(--mono); margin-top: 2px; word-break: break-all; }
+    .conf-bar { margin-top: 14px; }
+    .conf-label { font-size: .62rem; color: var(--sub); margin-bottom: 5px; display: flex; justify-content: space-between; }
+    .conf-track { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+    .conf-fill  { height: 100%; border-radius: 3px; transition: width .6s ease; }
+    .conf-fill.high { background: var(--green); }
+    .conf-fill.med  { background: var(--blue); }
+    .conf-fill.low  { background: var(--red); }
+
+    /* LOADING */
+    .loading-state { text-align: center; padding: 32px 16px; }
+    .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 14px; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .loading-txt { font-size: .85rem; font-weight: 600; color: var(--blue); }
+    .loading-sub { font-size: .7rem; color: var(--sub); margin-top: 5px; }
+
+    /* RIGHT PANEL */
+    .right-col { display: flex; flex-direction: column; gap: 14px; }
+
+    .panel-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 16px; padding: 18px;
+    }
+    .pc-title { font-size: .72rem; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 14px; }
+
+    /* CONTRACT INPUT */
+    .contract-inp {
+      width: 100%; background: var(--bg3); border: 1.5px solid var(--border);
+      border-radius: 8px; padding: 9px 12px; font-family: var(--mono);
+      font-size: .72rem; color: var(--text); outline: none; transition: border-color .2s;
+    }
+    .contract-inp:focus { border-color: var(--blue); }
+
+    /* RECENT VERIFICATIONS */
+    .verif-list { display: flex; flex-direction: column; gap: 8px; }
+    .verif-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px; background: var(--bg3); border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .vi-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .vi-info { flex: 1; min-width: 0; }
+    .vi-user { font-size: .76rem; font-weight: 600; color: var(--text); }
+    .vi-wallet { font-size: .62rem; color: var(--sub); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vi-badge { font-size: .58rem; padding: 2px 7px; border-radius: 20px; font-weight: 700; flex-shrink: 0; }
+    .vi-badge.ok   { background: rgba(0,186,124,0.15); color: var(--green); }
+    .vi-badge.fail { background: rgba(244,33,46,0.12); color: var(--red); }
+    .empty-list { text-align: center; padding: 20px; color: var(--muted); font-size: .75rem; }
+
+    /* PLATFORM GUIDE */
+    .guide-item { display: flex; gap: 10px; margin-bottom: 12px; }
+    .gi-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+    .gi-title { font-size: .76rem; font-weight: 700; color: var(--text); }
+    .gi-desc  { font-size: .68rem; color: var(--sub); margin-top: 2px; line-height: 1.5; }
+    .gi-desc code { color: var(--blue); font-family: var(--mono); font-size: .65rem; }
+
+    /* TOAST */
+    #toasts { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 6px; }
+    .toast { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; font-size: .74rem; color: var(--text); box-shadow: 0 4px 20px rgba(0,0,0,.3); animation: tIn .2s ease; }
+    .toast.ok  { border-left: 3px solid var(--green); }
+    .toast.err { border-left: 3px solid var(--red); }
+    @keyframes tIn { from{transform:translateX(110%);opacity:0} to{transform:none;opacity:1} }
+  </style>
+</head>
+<body>
+<div id="toasts"></div>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">SV</div>
+      <div>
+        <div class="logo-name">GenLayer Social Verifier</div>
+        <div class="logo-tag">On-chain identity verification · Powered by AI consensus</div>
+      </div>
+    </div>
+    <div class="hdr-stats">
+      <div class="hs-item">
+        <div class="hs-val" id="hVerified">0</div>
+        <div class="hs-lbl">Verified</div>
+      </div>
+      <div class="hs-item">
+        <div class="hs-val" id="hAttempts">0</div>
+        <div class="hs-lbl">Attempts</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="how-it-works">
+    <div style="flex:1">
+      <div class="hiw-title">How it works</div>
+      <div class="hiw-steps">
+        <div class="hiw-step"><span>1.</span> Post your wallet address in your social bio</div>
+        <div class="hiw-arrow">→</div>
+        <div class="hiw-step"><span>2.</span> Enter your username + wallet below</div>
+        <div class="hiw-arrow">→</div>
+        <div class="hiw-step"><span>3.</span> GenLayer AI validators verify the link</div>
+        <div class="hiw-arrow">→</div>
+        <div class="hiw-step"><span>4.</span> Result stored <span>permanently on-chain</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- LEFT -->
+    <div>
+      <!-- PLATFORM TABS -->
+      <div class="platform-tabs">
+        <button class="ptab active" id="tab-twitter" onclick="setTab('twitter')">𝕏 Twitter / X</button>
+        <button class="ptab github" id="tab-github" onclick="setTab('github')">⌥ GitHub</button>
+        <button class="ptab farcaster" id="tab-farcaster" onclick="setTab('farcaster')">⬡ Farcaster</button>
+      </div>
+
+      <!-- VERIFY FORM -->
+      <div class="verify-card">
+        <div class="vc-title" id="formTitle">Verify Twitter / X Identity</div>
+        <div class="vc-sub" id="formSub">
+          Post your wallet address in your <strong>Twitter/X bio</strong> first, then verify below.<br>
+          Example bio: <code style="color:var(--blue);font-family:var(--mono);font-size:.72rem">My wallet: 0x1234...abcd</code>
+        </div>
+
+        <div class="inp-group">
+          <label class="inp-label" id="usernameLabel">Twitter / X Username</label>
+          <input class="text-inp" id="usernameInput" placeholder="@yourhandle" />
+          <div class="inp-hint" id="usernameHint">Don't include the @ symbol, just your username</div>
+        </div>
+
+        <div class="inp-group">
+          <label class="inp-label">Wallet Address</label>
+          <input class="text-inp" id="walletInput" placeholder="0x..." />
+          <div class="inp-hint">Your full EVM wallet address starting with 0x</div>
+        </div>
+
+        <button class="btn-verify" id="btnVerify" onclick="verify()">
+          ✓ Verify on GenLayer
+        </button>
+
+        <!-- LOADING -->
+        <div class="loading-state" id="loadingState" style="display:none">
+          <div class="spinner"></div>
+          <div class="loading-txt">Querying GenLayer consensus...</div>
+          <div class="loading-sub" id="loadingSub">AI validators checking your profile</div>
+        </div>
+
+        <!-- RESULT -->
+        <div id="resultArea"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-col">
+
+      <!-- CONTRACT -->
+      <div class="panel-card">
+        <div class="pc-title">Contract Address</div>
+        <input class="contract-inp" id="contractInput" placeholder="0x... deploy social_verifier.py" value="" />
+      </div>
+
+      <!-- GUIDE -->
+      <div class="panel-card">
+        <div class="pc-title">Setup Guide</div>
+        <div class="guide-item">
+          <div class="gi-icon">𝕏</div>
+          <div>
+            <div class="gi-title">Twitter / X</div>
+            <div class="gi-desc">Add your wallet to your bio.<br>Example: <code>wallet: 0x1234...abcd</code></div>
+          </div>
+        </div>
+        <div class="guide-item">
+          <div class="gi-icon">⌥</div>
+          <div>
+            <div class="gi-title">GitHub</div>
+            <div class="gi-desc">Add wallet to your profile bio or a pinned repo README.<br>Example: <code>ETH: 0x1234...abcd</code></div>
+          </div>
+        </div>
+        <div class="guide-item">
+          <div class="gi-icon">⬡</div>
+          <div>
+            <div class="gi-title">Farcaster</div>
+            <div class="gi-desc">Connect your wallet to your Farcaster profile on Warpcast. Connected wallets are auto-verified.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT -->
+      <div class="panel-card">
+        <div class="pc-title">Recent Verifications</div>
+        <div class="verif-list" id="recentList">
+          <div class="empty-list">No verifications yet</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const BACKEND = window.BACKEND_URL || 'http://localhost:3004';
+
+let currentTab = 'twitter';
+let recentItems = [];
+
+const TAB_CONFIG = {
+  twitter: {
+    title:     'Verify Twitter / X Identity',
+    sub:       'Post your wallet address in your <strong>Twitter/X bio</strong> first, then verify below.<br>Example bio: <code style="color:var(--blue);font-family:var(--mono);font-size:.72rem">My wallet: 0x1234...abcd</code>',
+    label:     'Twitter / X Username',
+    hint:      "Don't include the @ symbol, just your username",
+    placeholder: '@yourhandle',
+    btnClass:  '',
+    btnText:   '𝕏 Verify on Twitter / X',
+    icon:      '𝕏',
+  },
+  github: {
+    title:     'Verify GitHub Identity',
+    sub:       'Add your wallet to your <strong>GitHub profile bio</strong> or pinned README, then verify below.<br>Example: <code style="color:var(--blue);font-family:var(--mono);font-size:.72rem">ETH: 0x1234...abcd</code>',
+    label:     'GitHub Username',
+    hint:      'Your GitHub username (case sensitive)',
+    placeholder: 'yourusername',
+    btnClass:  'github',
+    btnText:   '⌥ Verify on GitHub',
+    icon:      '⌥',
+  },
+  farcaster: {
+    title:     'Verify Farcaster Identity',
+    sub:       'Connect your wallet to your <strong>Farcaster / Warpcast profile</strong>, then verify below.',
+    label:     'Farcaster Username',
+    hint:      'Your Farcaster username without the @ symbol',
+    placeholder: 'yourfid',
+    btnClass:  'farcaster',
+    btnText:   '⬡ Verify on Farcaster',
+    icon:      '⬡',
+  },
+};
+
+function getContract() {
+  return document.getElementById('contractInput').value.trim();
+}
+
+function setTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  const cfg = TAB_CONFIG[tab];
+  document.getElementById('formTitle').textContent    = cfg.title;
+  document.getElementById('formSub').innerHTML        = cfg.sub;
+  document.getElementById('usernameLabel').textContent = cfg.label;
+  document.getElementById('usernameInput').placeholder = cfg.placeholder;
+  document.getElementById('usernameHint').textContent  = cfg.hint;
+
+  const btn = document.getElementById('btnVerify');
+  btn.className = 'btn-verify ' + cfg.btnClass;
+  btn.textContent = cfg.btnText;
+
+  document.getElementById('resultArea').innerHTML = '';
+  document.getElementById('loadingState').style.display = 'none';
+  btn.style.display = 'block';
+}
+
+async function verify() {
+  const contract = getContract();
+  if (!contract || !contract.startsWith('0x')) { toast('Enter contract address first', 'err'); return; }
+
+  const username = document.getElementById('usernameInput').value.trim().replace('@', '');
+  const wallet   = document.getElementById('walletInput').value.trim();
+
+  if (!username) { toast('Enter your ' + TAB_CONFIG[currentTab].label, 'err'); return; }
+  if (!wallet || !wallet.startsWith('0x')) { toast('Enter a valid wallet address (0x...)', 'err'); return; }
+
+  const btn = document.getElementById('btnVerify');
+  btn.style.display = 'none';
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('loadingSub').textContent = 'AI validators checking @' + username + ' on ' + currentTab + '...';
+  document.getElementById('resultArea').innerHTML = '';
+
+  try {
+    const r = await fetch(`${BACKEND}/api/verify/${currentTab}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contract, username, wallet }),
+    });
+    const j = await r.json();
+
+    document.getElementById('loadingState').style.display = 'none';
+    btn.style.display = 'block';
+
+    if (j.success && j.data) {
+      renderResult(j.data);
+      addRecent(j.data);
+      if (j.data.verified) {
+        toast('✓ @' + username + ' verified on-chain!', 'ok');
+      } else {
+        toast('Could not verify — check your profile has the wallet listed', 'err');
+      }
+    } else {
+      toast('Error: ' + (j.error || 'Try again'), 'err');
+    }
+  } catch(e) {
+    document.getElementById('loadingState').style.display = 'none';
+    btn.style.display = 'block';
+    toast('Backend offline — start backend on port 3004', 'err');
+  }
+}
+
+function renderResult(d) {
+  const isVerified = d.verified;
+  const conf = d.confidence || 0;
+  const confClass = conf >= 80 ? 'high' : conf >= 50 ? 'med' : 'low';
+  const platIcon = TAB_CONFIG[d.platform]?.icon || '?';
+
+  document.getElementById('resultArea').innerHTML = `
+    <div class="result-display">
+      <div class="${isVerified ? 'rd-verified' : 'rd-failed'}">
+        <div class="rd-icon">${isVerified ? '✅' : '❌'}</div>
+        <div class="rd-status ${isVerified ? 'ok' : 'fail'}">
+          ${isVerified ? 'Identity Verified On-Chain' : 'Verification Failed'}
+        </div>
+        <div class="rd-msg">${d.message || (isVerified ? 'Wallet ownership confirmed by GenLayer consensus' : 'Could not find wallet address in profile. Make sure your wallet is listed in your bio.')}</div>
+        <div class="rd-grid">
+          <div class="rdi">
+            <div class="rdi-label">Platform</div>
+            <div class="rdi-val">${platIcon} ${d.platform}</div>
+          </div>
+          <div class="rdi">
+            <div class="rdi-label">Username</div>
+            <div class="rdi-val">@${d.username}</div>
+          </div>
+          <div class="rdi">
+            <div class="rdi-label">Found In</div>
+            <div class="rdi-val">${d.found_in || '—'}</div>
+          </div>
+          <div class="rdi">
+            <div class="rdi-label">Verified By</div>
+            <div class="rdi-val">${d.verified_by || 'GenLayer'}</div>
+          </div>
+          <div class="rdi" style="grid-column:span 2">
+            <div class="rdi-label">Wallet</div>
+            <div class="rdi-val">${d.wallet}</div>
+          </div>
+        </div>
+        ${isVerified ? `
+        <div class="conf-bar">
+          <div class="conf-label"><span>AI Confidence</span><span>${conf}%</span></div>
+          <div class="conf-track"><div class="conf-fill ${confClass}" style="width:${conf}%"></div></div>
+        </div>` : ''}
+      </div>
+    </div>
+  `;
+
+  // Update stats
+  document.getElementById('hAttempts').textContent =
+    parseInt(document.getElementById('hAttempts').textContent || 0) + 1;
+  if (isVerified) {
+    document.getElementById('hVerified').textContent =
+      parseInt(document.getElementById('hVerified').textContent || 0) + 1;
+  }
+}
+
+function addRecent(d) {
+  recentItems.unshift(d);
+  if (recentItems.length > 5) recentItems.pop();
+
+  const list = document.getElementById('recentList');
+  const platIcon = TAB_CONFIG[d.platform]?.icon || '?';
+  list.innerHTML = recentItems.map(item => `
+    <div class="verif-item">
+      <div class="vi-icon">${TAB_CONFIG[item.platform]?.icon || '?'}</div>
+      <div class="vi-info">
+        <div class="vi-user">@${item.username}</div>
+        <div class="vi-wallet">${item.wallet}</div>
+      </div>
+      <div class="vi-badge ${item.verified ? 'ok' : 'fail'}">${item.verified ? '✓' : '✗'}</div>
+    </div>
+  `).join('');
+}
+
+function toast(msg, type='ok') {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3500);
+}
+
+// Load stats on startup
+window.onload = async () => {
+  const contract = getContract();
+  if (!contract) return;
+  try {
+    const r = await fetch(`${BACKEND}/api/stats?contract=${contract}`);
+    const j = await r.json();
+    if (j.success && j.data) {
+      document.getElementById('hVerified').textContent = j.data.verified_count || 0;
+      document.getElementById('hAttempts').textContent = j.data.total_attempts || 0;
+    }
+  } catch(e) {}
+};
+</script>
+</body>
+</html>
