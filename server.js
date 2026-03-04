@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { createClient, createAccount } from 'genlayer-js';
+import { TransactionStatus } from 'genlayer-js/types';
 import { studionet } from 'genlayer-js/chains';
 
 const OPERATOR_KEY     = process.env.OPERATOR_PRIVATE_KEY || '0xa7db0893b5433f384c92669e3d54b7106e069a8d3cff415ee31affebdfa6b0bc';
@@ -77,13 +78,10 @@ app.post('/api/verify/twitter', async (req, res) => {
   const ca = contract || DEFAULT_CONTRACT;
   console.log('🐦 verify_twitter(' + username + ', ' + wallet.slice(0,10) + '...)');
   try {
-    const hash = await client.writeContract({
-      address: ca, functionName: 'verify_twitter',
-      args: [username, wallet], value: 0n,
-    });
-    console.log('⏳ Waiting...', hash);
-    const result = await waitForTx(hash, 'verify_twitter');
-    res.json(result);
+    const receipt = await callContract(ca, 'verify_twitter', [username, wallet]);
+    const data    = extractResult(receipt);
+    if (data) return res.json({ success: true, data });
+    res.json({ success: false, error: 'Could not parse result' });
   } catch(err) {
     res.json({ success: false, error: err.message });
   }
@@ -95,13 +93,10 @@ app.post('/api/verify/github', async (req, res) => {
   const ca = contract || DEFAULT_CONTRACT;
   console.log('🐙 verify_github(' + username + ', ' + wallet.slice(0,10) + '...)');
   try {
-    const hash = await client.writeContract({
-      address: ca, functionName: 'verify_github',
-      args: [username, wallet], value: 0n,
-    });
-    console.log('⏳ Waiting...', hash);
-    const result = await waitForTx(hash, 'verify_github');
-    res.json(result);
+    const receipt = await callContract(ca, 'verify_github', [username, wallet]);
+    const data    = extractResult(receipt);
+    if (data) return res.json({ success: true, data });
+    res.json({ success: false, error: 'Could not parse result' });
   } catch(err) {
     res.json({ success: false, error: err.message });
   }
@@ -113,13 +108,10 @@ app.post('/api/verify/farcaster', async (req, res) => {
   const ca = contract || DEFAULT_CONTRACT;
   console.log('🟣 verify_farcaster(' + username + ', ' + wallet.slice(0,10) + '...)');
   try {
-    const hash = await client.writeContract({
-      address: ca, functionName: 'verify_farcaster',
-      args: [username, wallet], value: 0n,
-    });
-    console.log('⏳ Waiting...', hash);
-    const result = await waitForTx(hash, 'verify_farcaster');
-    res.json(result);
+    const receipt = await callContract(ca, 'verify_farcaster', [username, wallet]);
+    const data    = extractResult(receipt);
+    if (data) return res.json({ success: true, data });
+    res.json({ success: false, error: 'Could not parse result' });
   } catch(err) {
     res.json({ success: false, error: err.message });
   }

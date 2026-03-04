@@ -431,10 +431,14 @@ async function verify() {
   document.getElementById('resultArea').innerHTML = '';
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4 * 60 * 1000);
     const r = await fetch(`${BACKEND}/api/verify/${currentTab}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contract, username, wallet }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     const j = await r.json();
 
     document.getElementById('loadingState').style.display = 'none';
