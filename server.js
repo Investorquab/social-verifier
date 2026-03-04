@@ -1,18 +1,19 @@
 import express from 'express';
 import cors from 'cors';
 import { createClient, createAccount } from 'genlayer-js';
-import { TransactionStatus } from 'genlayer-js/types';
 import { studionet } from 'genlayer-js/chains';
+import { TransactionStatus } from 'genlayer-js/types';
 
 const OPERATOR_KEY     = process.env.OPERATOR_PRIVATE_KEY || '0xa7db0893b5433f384c92669e3d54b7106e069a8d3cff415ee31affebdfa6b0bc';
 const DEFAULT_CONTRACT = process.env.CONTRACT_ADDRESS || '0x8df22de95077A47E85f3Cc0c6245A59eB9CcdCbC';
 const PORT             = process.env.PORT || 3004;
 
 const app = express();
-app.use(cors({ origin: '*' }));
+app.use(cors({ origin: '*', methods: ['GET','POST','OPTIONS'], allowedHeaders: ['Content-Type'] }));
+app.options('*', cors());
 app.use(express.json());
 
-let client  = null;
+let client = null;
 let account = null;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -30,49 +31,61 @@ async function initializeClient() {
   }
 }
 
-async function waitForTx(hash, label) {
-  const MAX = 24;
-  for (let i = 0; i < MAX; i++) {
-    await sleep(5000);
+async function callContract(contractAddress, functionName, args = []) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const receipt = await client.waitForTransactionReceipt({ hash, retries: 1 });
-      if (receipt) {
-        console.log('✅ Done:', label);
-        const raw = JSON.stringify(receipt);
-        const match = raw.match(/"(\{[^"]*"success"[^"]*\})"/);
-        if (match) {
-          try {
-            const parsed = JSON.parse(match[1].replace(/\\"/g, '"').replace(/\\n/g, ''));
-            console.log('📦 parsed:', JSON.stringify(parsed).substring(0, 120));
-            return { success: true, data: parsed };
-          } catch(e) {}
-        }
-        if (receipt.consensus_data) {
-          const cd     = receipt.consensus_data;
-          const leader = cd.final_used_leader_receipt || cd.leader_receipt;
-          if (leader?.execution_result) {
-            try {
-              const parsed = typeof leader.execution_result === 'string'
-                ? JSON.parse(leader.execution_result)
-                : leader.execution_result;
-              return { success: true, data: parsed };
-            } catch(e) {}
-          }
-        }
-        return { success: false, error: 'Finalized but could not parse' };
-      }
-    } catch(e) {
-      if (i < MAX - 1) continue;
+      console.log(`📝 ${functionName} (attempt ${attempt})`);
+      const txHash = await client.writeContract({
+        address: contractAddress, functionName, args, value: 0n,
+      });
+      console.log('⏳ Waiting...', txHash);
+      const receipt = await client.waitForTransactionReceipt({
+        hash: txHash, status: TransactionStatus.FINALIZED, retries: 40, interval: 5000,
+      });
+      console.log('✅ Done:', functionName);
+      return receipt;
+    } catch(err) {
+      console.log(`Attempt ${attempt} failed: ${err.message.slice(0,80)}`);
+      if (attempt < 3) await sleep(4000);
+      else throw err;
     }
   }
-  return { success: false, error: 'Timeout' };
+}
+
+function extractResult(receipt) {
+  try {
+    const lr = receipt?.consensus_data?.leader_receipt?.[0];
+
+    const readable = lr?.result?.payload?.readable;
+    if (readable) {
+      console.log('📦 readable raw:', String(readable).slice(0, 200));
+      let str = readable;
+      if (typeof str === 'string' && str.startsWith('"') && str.endsWith('"')) str = str.slice(1,-1);
+      str = str.replace(/\\"/g, '"').replace(/\\n/g, '').replace(/\\t/g, '');
+      try { const r = JSON.parse(str); console.log('✅ Parsed from readable'); return r; } catch(e) {}
+      try { return JSON.parse(readable); } catch(e) {}
+    }
+
+    const stdout = lr?.genvm_result?.stdout;
+    if (stdout?.trim()) {
+      try { return JSON.parse(stdout.trim()); } catch(e) {}
+    }
+
+    const eq = lr?.eq_outputs;
+    if (eq && Object.keys(eq).length > 0) {
+      try { return JSON.parse(Object.values(eq)[0]); } catch(e) {}
+    }
+
+    console.log('⚠️ Full lr keys:', Object.keys(lr || {}));
+    console.log('⚠️ lr.result:', JSON.stringify(lr?.result)?.slice(0, 200));
+    return null;
+  } catch(e) { return null; }
 }
 
 app.get('/health', (req, res) => {
   res.json({ status: 'alive', service: 'GenLayer Social Verifier', port: PORT });
 });
 
-// Verify Twitter/X
 app.post('/api/verify/twitter', async (req, res) => {
   const { contract, username, wallet } = req.body;
   const ca = contract || DEFAULT_CONTRACT;
@@ -87,7 +100,6 @@ app.post('/api/verify/twitter', async (req, res) => {
   }
 });
 
-// Verify GitHub
 app.post('/api/verify/github', async (req, res) => {
   const { contract, username, wallet } = req.body;
   const ca = contract || DEFAULT_CONTRACT;
@@ -102,7 +114,6 @@ app.post('/api/verify/github', async (req, res) => {
   }
 });
 
-// Verify Farcaster
 app.post('/api/verify/farcaster', async (req, res) => {
   const { contract, username, wallet } = req.body;
   const ca = contract || DEFAULT_CONTRACT;
@@ -117,7 +128,6 @@ app.post('/api/verify/farcaster', async (req, res) => {
   }
 });
 
-// Check existing verification
 app.get('/api/check', async (req, res) => {
   const { contract, platform, username, wallet } = req.query;
   const ca = contract || DEFAULT_CONTRACT;
@@ -132,7 +142,6 @@ app.get('/api/check', async (req, res) => {
   }
 });
 
-// Stats
 app.get('/api/stats', async (req, res) => {
   const { contract } = req.query;
   const ca = contract || DEFAULT_CONTRACT;
@@ -147,7 +156,7 @@ app.get('/api/stats', async (req, res) => {
 });
 
 const ok = await initializeClient();
-if (!ok) { console.error('Failed to connect. Exiting.'); process.exit(1); }
+if (!ok) { process.exit(1); }
 app.listen(PORT, () => {
   console.log('✅ Social Verifier Backend running on port', PORT);
   console.log('📌 Health: http://localhost:' + PORT + '/health');
