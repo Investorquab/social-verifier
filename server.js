@@ -32,52 +32,79 @@ async function initializeClient() {
 }
 
 async function callContract(contractAddress, functionName, args = []) {
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  console.log(`📝 ${functionName}`);
+  const txHash = await client.writeContract({
+    address: contractAddress, functionName, args, value: 0n,
+  });
+  console.log('⏳ Waiting...', txHash);
+
+  // Manual polling - works regardless of consensus mode
+  for (let i = 0; i < 40; i++) {
+    await sleep(5000);
     try {
-      console.log(`📝 ${functionName} (attempt ${attempt})`);
-      const txHash = await client.writeContract({
-        address: contractAddress, functionName, args, value: 0n, leaderOnly: true,
-      });
-      console.log('⏳ Waiting...', txHash);
-      const receipt = await client.waitForTransactionReceipt({
-        hash: txHash, status: TransactionStatus.ACCEPTED, retries: 30, interval: 3000,
-      });
-      console.log('✅ Done:', functionName);
-      return receipt;
-    } catch(err) {
-      console.log(`Attempt ${attempt} failed: ${err.message.slice(0,80)}`);
-      if (attempt < 3) await sleep(4000);
-      else throw err;
+      const tx = await client.getTransactionByHash(txHash);
+      if (!tx) continue;
+
+      const status = tx.status ?? tx.statusName ?? '';
+      const statusNum = parseInt(status);
+
+      // Check for finalized/accepted states (5=ACCEPTED, 6=FINALIZED, 7=COMMITTING)
+      if (statusNum >= 5 || String(status).includes('FINAL') || String(status).includes('ACCEPT') || String(status).includes('COMMIT')) {
+        console.log('✅ Done:', functionName, 'status:', status);
+        return tx;
+      }
+
+      // Check for error
+      if (tx.result?.status === 'contract_error') {
+        throw new Error('Contract error: ' + tx.result?.payload);
+      }
+    } catch(e) {
+      if (e.message.includes('Contract error')) throw e;
+      // ignore RPC errors and keep polling
     }
   }
+  throw new Error('Timeout after 40 attempts');
 }
 
-function extractResult(receipt) {
+function extractResult(tx) {
   try {
-    const lr = receipt?.consensus_data?.leader_receipt?.[0];
+    // Try readable from leader receipt
+    const lr = tx?.consensus_data?.leader_receipt?.[0] 
+             || tx?.consensus_data?.final_used_leader_receipt;
 
     const readable = lr?.result?.payload?.readable;
     if (readable) {
       console.log('📦 readable raw:', String(readable).slice(0, 200));
       let str = readable;
       if (typeof str === 'string' && str.startsWith('"') && str.endsWith('"')) str = str.slice(1,-1);
-      str = str.replace(/\\"/g, '"').replace(/\\n/g, '').replace(/\\t/g, '');
+      str = str.replace(/\"/g, '"').replace(/\n/g, '').replace(/\t/g, '');
       try { const r = JSON.parse(str); console.log('✅ Parsed from readable'); return r; } catch(e) {}
       try { return JSON.parse(readable); } catch(e) {}
     }
 
-    const stdout = lr?.genvm_result?.stdout;
-    if (stdout?.trim()) {
-      try { return JSON.parse(stdout.trim()); } catch(e) {}
-    }
-
-    const eq = lr?.eq_outputs;
+    // Try eq_outputs
+    const eq = tx?.eq_outputs || lr?.eq_outputs;
     if (eq && Object.keys(eq).length > 0) {
-      try { return JSON.parse(Object.values(eq)[0]); } catch(e) {}
+      const first = Object.values(eq)[0];
+      const val = first?.result ?? first?.value ?? first;
+      if (val && typeof val === 'string' && val.includes('{')) {
+        try { return JSON.parse(val); } catch(e) {}
+      }
     }
 
-    console.log('⚠️ Full lr keys:', Object.keys(lr || {}));
-    console.log('⚠️ lr.result:', JSON.stringify(lr?.result)?.slice(0, 200));
+    // Try scanning full JSON for success object
+    const raw = JSON.stringify(tx);
+    const match = raw.match(/"(\{"success":[^"]*(?:"[^"]*"[^"]*)*\})"/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[1].replace(/\"/g, '"'));
+        console.log('✅ Parsed from scan');
+        return parsed;
+      } catch(e) {}
+    }
+
+    console.log('⚠️ Could not extract result from tx');
+    console.log('⚠️ tx keys:', Object.keys(tx || {}));
     return null;
   } catch(e) { return null; }
 }
