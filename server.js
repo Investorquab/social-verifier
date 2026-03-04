@@ -4,7 +4,7 @@ import { createClient, createAccount } from 'genlayer-js';
 import { studionet } from 'genlayer-js/chains';
 
 const OPERATOR_KEY     = process.env.OPERATOR_PRIVATE_KEY || '0xa7db0893b5433f384c92669e3d54b7106e069a8d3cff415ee31affebdfa6b0bc';
-const DEFAULT_CONTRACT = process.env.CONTRACT_ADDRESS || '';
+const DEFAULT_CONTRACT = process.env.CONTRACT_ADDRESS || '0x8df22de95077A47E85f3Cc0c6245A59eB9CcdCbC';
 const PORT             = process.env.PORT || 3004;
 
 const app = express();
